@@ -21,14 +21,40 @@ RSpec.describe Promptly::UI do
 
     it 'displays a table with prompt information' do
       prompts = [test_prompt]
-
-      expect { ui.display_prompt_table(prompts) }.to output.to_stdout
-      # Since we can't easily test the exact table output due to TTY::Table rendering,
-      # we're just verifying it outputs something to stdout
+      
+      # Mock TTY::Table to avoid ioctl errors
+      table_double = instance_double(TTY::Table)
+      rendered_table = "Rendered table content"
+      
+      # Create the expected rows array that matches what the method will generate
+      expected_rows = [
+        [
+          test_prompt.name,
+          ui.send(:truncate_text, test_prompt.description, 40),
+          test_prompt.variable_count,
+          File.basename(test_prompt.filepath)
+        ]
+      ]
+      
+      expect(TTY::Table).to receive(:new).with(
+        header: %w[Name Description Variables File],
+        rows: expected_rows
+      ).and_return(table_double)
+      
+      expect(table_double).to receive(:render).with(:unicode, padding: [0, 1]).and_return(rendered_table)
+      expect { ui.display_prompt_table(prompts) }.to output(/#{Regexp.escape(rendered_table)}/).to_stdout
     end
   end
 
   describe '#display_prompt_details' do
+    before do
+      # Mock TTY::Box.frame to avoid terminal-related issues in tests
+      allow(TTY::Box).to receive(:frame) do |**options, &block|
+        "Mocked box with content: #{block.call}"
+      end
+      allow(ui.instance_variable_get(:@markdown)).to receive(:parse).and_return("Parsed markdown")
+    end
+
     it 'displays prompt details in a formatted box' do
       expect { ui.display_prompt_details(test_prompt) }.to output.to_stdout
     end
@@ -94,37 +120,61 @@ RSpec.describe Promptly::UI do
   end
 
   describe 'private #build_metadata_content' do
-    it 'formats prompt metadata' do
-      # We can test this indirectly through display_prompt_details
-      expect { ui.display_prompt_details(test_prompt) }.to output(/Description: A test prompt description/).to_stdout
-      expect { ui.display_prompt_details(test_prompt) }.to output(/Variables: var1, var2/).to_stdout
-      expect { ui.display_prompt_details(test_prompt) }.to output(%r{File: /path/to/test_prompt\.md}).to_stdout
+    it 'formats prompt metadata correctly' do
+      # Test the method directly instead of through display_prompt_details
+      metadata_content = ui.send(:build_metadata_content, test_prompt)
+      
+      expect(metadata_content).to include("Description: A test prompt description")
+      expect(metadata_content).to include("Variables: var1, var2")
+      expect(metadata_content).to include("File: /path/to/test_prompt.md")
+    end
+    
+    it 'handles prompts without variables' do
+      prompt_without_vars = Promptly::Prompt.new(
+        name: 'no_vars',
+        description: 'No variables',
+        variables: [],
+        body: 'Body'
+      )
+      
+      metadata_content = ui.send(:build_metadata_content, prompt_without_vars)
+      expect(metadata_content).to include("Variables: None")
+    end
+    
+    it 'handles prompts without filepath' do
+      prompt_without_filepath = Promptly::Prompt.new(
+        name: 'no_file',
+        description: 'No filepath',
+        variables: [],
+        body: 'Body'
+      )
+      
+      metadata_content = ui.send(:build_metadata_content, prompt_without_filepath)
+      expect(metadata_content).to include("File: Unknown")
     end
   end
 
   describe 'private #truncate_text' do
     it 'truncates long text' do
-      # Test indirectly through display_prompt_table with a long description
-      long_description_prompt = Promptly::Prompt.new(
-        name: 'long_desc',
-        description: 'A' * 50, # Long description that should be truncated
-        variables: [],
-        filepath: '/path/to/long_desc.md'
-      )
-
-      expect { ui.display_prompt_table([long_description_prompt]) }.to output.to_stdout
-      # Since we can't easily verify the truncated output, we're just checking it runs without error
+      long_text = 'A' * 50
+      result = ui.send(:truncate_text, long_text, 40)
+      expect(result).to eq("#{'A' * 40}...")
     end
 
-    it 'returns N/A for nil or empty text' do
-      prompt_with_no_desc = Promptly::Prompt.new(
-        name: 'no_desc',
-        description: nil,
-        variables: [],
-        filepath: '/path/to/no_desc.md'
-      )
+    it 'returns original text if not longer than max_length' do
+      text = 'Short text'
+      result = ui.send(:truncate_text, text, 40)
+      expect(result).to eq(text)
+    end
 
-      expect { ui.display_prompt_table([prompt_with_no_desc]) }.to output.to_stdout
+    it 'returns N/A for nil text' do
+      result = ui.send(:truncate_text, nil, 40)
+      expect(result).to eq('N/A')
+    end
+
+    it 'returns N/A for empty text' do
+      result = ui.send(:truncate_text, '', 40)
+      expect(result).to eq('N/A')
     end
   end
 end
