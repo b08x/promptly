@@ -33,3 +33,9 @@ group :development do
   gem 'reline'
   gem 'rdoc'
 end
+
+group :test do
+  gem 'rswag-specs'
+end
+
+gem 'swagger-blocks', '~> 3.0'

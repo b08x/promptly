@@ -1,2 +1,5 @@
 /.ruby-lsp/
 *.code-workspace
+
+/docs/
+/doc/
