@@ -2,6 +2,10 @@
 
 require 'gli' # Ensure GLI is required
 require 'tty-prompt' # Ensure TTY-Prompt is available
+require_relative 'cli_actions/list_action'
+require_relative 'cli_actions/view_action'
+require_relative 'cli_actions/edit_action'
+require_relative 'cli_actions/config_action'
 
 # The Promptly module serves as a namespace for all the classes and modules
 # that make up the Promptly application.
@@ -28,236 +32,134 @@ module Promptly
     # --- Interactive Menu ---
     def self.show_interactive_menu
       ui = Promptly::UI.new
-      manager = Promptly::Manager.new # Instantiate once
+      manager = Promptly::Manager.new # Instantiate once, $config is used by Manager's default
+
+      list_action_service = Promptly::CliActions::ListAction.new(ui, manager)
+      view_action_service = Promptly::CliActions::ViewAction.new(ui, manager)
+      edit_action_service = Promptly::CliActions::EditAction.new(ui, manager, $config) # EditAction uses config
+      config_action_service = Promptly::CliActions::ConfigAction.new(ui, manager, $config) # ConfigAction uses config
 
       loop do
         puts '\\n--- Promptly Menu ---'
-        choice = ui.select('Choose an action:', %w[View Edit Config Docs Exit], cycle: true, per_page: 10)
+        # Added 'List' to menu as it's a common action, was missing from interactive
+        choice = ui.select('Choose an action:', %w[List View Edit Config Docs Exit], cycle: true, per_page: 10)
         puts '' # Add a newline for spacing
 
         case choice
-        # when 'List'
-        #   # --- Duplicated 'list' action ---
-        #   begin
-        #     # manager and ui are already available
-        #     prompts = manager.list_all
-        #     ui.display_prompt_table(prompts)
-        #     puts "\\nTotal: #{prompts.size} prompt(s) found" if prompts.any?
-        #   rescue StandardError => e
-        #     ui.display_error("Failed to list prompts: #{e.message}")
-        #     # Don't exit, just loop back
-        #   end
-        #   # --- End Duplicated 'list' action ---
+        when 'List'
+          result = list_action_service.execute
+          ui.display_error(result[:message]) unless result[:success]
+          # display_info for total count is handled by ListAction
 
         when 'View'
-          # --- Duplicated 'view' action (with prompt) ---
-          prompts = manager.list_all
+          prompts = manager.list_all # Still need to list for selection
           if prompts.empty?
             ui.display_info('No prompts available to view.')
-            next # Go back to main menu
+            next
           end
           choices = prompts.map { |p| { name: p.name, value: p.name } }
           choices << { name: '(Cancel)', value: :cancel }
           prompt_name = ui.select('Select a prompt to view:', choices, filter: true)
 
-          next if prompt_name == :cancel # Go back if cancelled
+          next if prompt_name == :cancel
 
-          args = [prompt_name] # Simulate args
-
-          begin
-            prompt = manager.find_by_name(prompt_name)
-
-            if prompt
-              ui.display_prompt_details(prompt)
-            else
-              ui.display_error("Prompt '#{prompt_name}' not found")
-              all_prompts = manager.list_all
-              suggestions = all_prompts.select { |p| p.name.downcase.include?(prompt_name.downcase) }
-              if suggestions.any?
-                puts '\\nDid you mean one of these?'
-                suggestions.each { |p| puts "  - #{p.name}" }
-              end
-            end
-          rescue Promptly::ParseError => e
-            ui.display_error(e.message)
-          rescue StandardError => e
-            ui.display_error("Failed to view prompt: #{e.message}")
+          if prompt_name
+            result = view_action_service.execute(prompt_name: prompt_name)
+            ui.display_error(result[:message]) unless result[:success]
+            # Detailed display or error message (including suggestions) is handled by ViewAction or its result
           end
-          # --- End Duplicated 'view' action ---
 
         when 'Edit'
-          # --- Duplicated 'edit' action (with prompt) ---
-          action = ui.select('Action:', %w[Edit_Existing Create_New Cancel], cycle: true)
-          prompt_name = nil
+          edit_sub_choice = ui.select('Action:', %w[Edit_Existing Create_New Cancel], cycle: true)
+          prompt_name_to_edit = nil
+          force_create_flag = false
 
-          case action
+          case edit_sub_choice
           when 'Edit_Existing'
             prompts = manager.list_all
             if prompts.empty?
               ui.display_info('No prompts available to edit.')
-              next # Back to main menu
+              next
             end
             choices = prompts.map { |p| { name: p.name, value: p.name } }
             choices << { name: '(Cancel)', value: :cancel }
-            prompt_name = ui.select('Select a prompt to edit:', choices, filter: true)
-            next if prompt_name == :cancel
-
+            prompt_name_to_edit = ui.select('Select a prompt to edit:', choices, filter: true)
+            next if prompt_name_to_edit == :cancel
           when 'Create_New'
-            prompt_name = ui.prompt.ask('Enter the name for the new prompt:') do |q|
+            prompt_name_to_edit = ui.prompt.ask('Enter the name for the new prompt:') do |q|
               q.required true
               q.modify :strip
             end
-            next unless prompt_name # Back to main menu if empty/cancelled
-
+            next unless prompt_name_to_edit # Back to main menu if empty/cancelled
+            force_create_flag = true # Indicate direct intent to create
           when 'Cancel'
-            next # Back to main menu
+            next
           end
 
-          next unless prompt_name # Ensure we have a name
-
-          args = [prompt_name] # Simulate args
-
-          begin
-            prompt = manager.find_by_name(prompt_name)
-            filepath = nil
-
-            if prompt
-              filepath = prompt.filepath
-              ui.display_info("Editing existing prompt: #{prompt.name}")
-            else
-              prompts_dir = $config.fetch(:prompts_directory)
-              filepath = File.join(prompts_dir, "#{prompt_name}.md")
-
-              next unless ui.confirm("Prompt '#{prompt_name}' not found. Create new prompt?")
-
-              template_content = create_prompt_template(prompt_name)
-              File.write(filepath, template_content)
-              ui.display_success("Created new prompt file: #{filepath}")
-
-              # User cancelled creation, go back to menu
-
-            end
-
-            editor = TTY::Editor
-            editor_command = $config.fetch(:default_editor)
-
-            opened = editor_command ? editor.open(filepath, command: editor_command) : editor.open(filepath)
-
-            if opened
-              begin
-                updated_prompt = manager.find_by_name(prompt_name)
-                if updated_prompt
-                  ui.display_success("Successfully updated prompt: #{prompt_name}")
-                else
-                  ui.display_warning('Prompt saved, but there may be parsing issues')
-                end
-              rescue Promptly::ParseError => e
-                ui.display_warning("Prompt saved, but has parsing errors: #{e.message}")
-              end
-            else
-              ui.display_error('Failed to open editor')
-            end
-          rescue Promptly::ParseError => e
-            ui.display_error("Parse error: #{e.message}")
-          rescue StandardError => e
-            ui.display_error("Failed to edit prompt: #{e.message}\\n#{e.backtrace.join("\n")}")
+          if prompt_name_to_edit
+            result = edit_action_service.execute(prompt_name: prompt_name_to_edit, force_create: force_create_flag)
+            # EditAction handles UI feedback for success/warning/error internally
+            # It returns { cancelled: true } if user cancels mid-action (e.g., "prompt not found, create?" -> no)
+            next if result[:cancelled]
+            # If not successful and not cancelled, it's an operational error the action couldn't recover from
+            ui.display_error(result[:message]) if !result[:success] && !result[:cancelled]
           end
-          # --- End Duplicated 'edit' action ---
 
         when 'Config'
-          # --- Sub-Menu for Config ---
           loop do
             puts '\\n--- Configuration Menu ---'
-            config_choice = ui.select('Configure:', %w[List Get Set Back], cycle: true)
-            case config_choice
-            when 'List'
-              # --- Duplicated 'config list' ---
-              begin
-                config_hash = $config.to_h
-                if config_hash.empty?
-                  ui.display_info('No configuration values set')
-                else
-                  table = TTY::Table.new(
-                    header: %w[Key Value],
-                    rows: config_hash.map { |k, v| [k, v] }
-                  )
-                  puts table.render(:unicode, padding: [0, 1])
-                end
-              rescue StandardError => e
-                ui.display_error("Failed to list configuration: #{e.message}")
-              end
-              # --- End Duplicated 'config list' ---
+            config_sub_choice = ui.select('Configure:', %w[List Get Set Back], cycle: true)
+            config_params = { sub_action: config_sub_choice.downcase.to_sym }
 
+            case config_sub_choice
             when 'Get'
-              # --- Duplicated 'config get' (with prompt) ---
               key_str = ui.prompt.ask('Enter key:')
-              next unless key_str # Go back if cancelled
-
-              key = key_str.to_sym
-              begin
-                value = $config.fetch(key)
-                puts "#{key}: #{value}"
-              rescue KeyError
-                ui.display_error("Configuration key '#{key}' not found")
-                puts '\\nAvailable configuration keys:'
-                $config.to_h.keys.each { |k| puts "  - #{k}" }
-              rescue StandardError => e
-                ui.display_error("Failed to get configuration: #{e.message}")
-              end
-              # --- End Duplicated 'config get' ---
-
+              next unless key_str
+              config_params[:key] = key_str
             when 'Set'
-              # --- Duplicated 'config set' (with prompt) ---
               key_str = ui.prompt.ask('Enter key:')
-              next unless key_str # Go back if cancelled
-
-              value = ui.prompt.ask("Enter value for #{key_str}:")
-              next unless value # Go back if cancelled
-
-              key = key_str.to_sym
-              begin
-                $config.set(key, value: value)
-                config_file = File.join(Dir.home, '.config', 'promptly', 'config.yml')
-                FileUtils.mkdir_p(File.dirname(config_file))
-                $config.write(config_file, format: :yaml, force: true)
-                ui.display_success("Set #{key} = #{value}")
-              rescue StandardError => e
-                ui.display_error("Failed to set configuration: #{e.message}")
-              end
-              # --- End Duplicated 'config set' ---
-
+              next unless key_str
+              value_str = ui.prompt.ask("Enter value for #{key_str}:")
+              # Allow empty string for value, but not nil if cancelled
+              next if value_str.nil? # User cancelled value input
+              config_params[:key] = key_str
+              config_params[:value] = value_str
             when 'Back'
-              break # Exit config sub-menu
+              break
             end
+
+            result = config_action_service.execute(config_params)
+            # ConfigAction handles its own UI output for list/get/set success.
+            # It will return success:false and a message for errors.
+            ui.display_error(result[:message]) unless result[:success]
+
             puts ''
-            ui.prompt.keypress('Press any key to return to Config menu...') unless config_choice == 'Back'
-            system 'clear' or system 'cls'
+            ui.prompt.keypress('Press any key to return to Config menu...') unless config_sub_choice == 'Back'
+            system 'clear' or system 'cls' # Original screen clearing
           end
-          # --- End Sub-Menu for Config ---
 
         when 'Exit'
           ui.display_info('Exiting Promptly. Goodbye!')
-          break # Exit the main loop
+          break
         end
 
-        # Don't prompt if exiting
         next if choice == 'Exit'
 
-        puts '' # Add a newline
+        puts ''
         ui.prompt.keypress('Press any key to return to the menu...')
-        system 'clear' or system 'cls' # Clear screen for next menu display
+        system 'clear' or system 'cls'
       end
     end
 
-    # --- GLI Command Definitions (UNCHANGED) ---
+    # --- GLI Command Definitions ---
 
-    # Defines the 'docs' command.
-    # This command displays interactive documentation.
     desc 'View interactive documentation (SFL Concepts)'
     command :docs do |c|
       c.action do |_global_options, _options, _args|
+        # This command remains unchanged as it uses a specific DocsViewer
         Promptly::DocsViewer.new.show
       rescue StandardError => e
+        # Keep UI instantiation local for commands if they don't share state
         ui = Promptly::UI.new
         ui.display_error("Failed to view docs: #{e.message}\n#{e.backtrace.join("\n")}")
         exit_now!(1)
@@ -267,16 +169,15 @@ module Promptly
     desc 'List all available prompts'
     command :list do |c|
       c.action do |_global_options, _options, _args|
-        manager = Promptly::Manager.new
         ui = Promptly::UI.new
+        manager = Promptly::Manager.new
+        action = Promptly::CliActions::ListAction.new(ui, manager)
+        result = action.execute
 
-        begin
-          prompts = manager.list_all
-          ui.display_prompt_table(prompts)
-          puts "\\nTotal: #{prompts.size} prompt(s) found" if prompts.any?
-        rescue StandardError => e
-          ui = Promptly::UI.new # This line is redundant but in original
-          ui.display_error("Failed to list prompts: #{e.message}")
+        # ListAction handles its own display, including total count.
+        # It returns success:false on error.
+        unless result[:success]
+          ui.display_error(result[:message] || 'Failed to list prompts.')
           exit_now!(1)
         end
       end
@@ -286,43 +187,20 @@ module Promptly
     arg_name 'name'
     command :view do |c|
       c.action do |_global_options, _options, args|
+        ui = Promptly::UI.new
         if args.empty?
-          ui = Promptly::UI.new
-          ui.display_error('Please provide a prompt name')
+          ui.display_error('Please provide a prompt name.')
           exit_now!(1)
         end
 
+        manager = Promptly::Manager.new
+        action = Promptly::CliActions::ViewAction.new(ui, manager)
         prompt_name = args.first
+        result = action.execute(prompt_name: prompt_name)
 
-        begin
-          manager = Promptly::Manager.new
-          ui = Promptly::UI.new
-
-          prompt = manager.find_by_name(prompt_name)
-
-          if prompt
-            ui.display_prompt_details(prompt)
-          else
-            ui.display_error("Prompt '#{prompt_name}' not found")
-
-            # Suggest similar prompts
-            all_prompts = manager.list_all
-            suggestions = all_prompts.select { |p| p.name.downcase.include?(prompt_name.downcase) }
-
-            if suggestions.any?
-              puts '\\nDid you mean one of these?'
-              suggestions.each { |p| puts "  - #{p.name}" }
-            end
-
-            exit_now!(1)
-          end
-        rescue Promptly::ParseError => e
-          ui = Promptly::UI.new
-          ui.display_error(e.message)
-          exit_now!(1)
-        rescue StandardError => e
-          ui = Promptly::UI.new
-          ui.display_error("Failed to view prompt: #{e.message}")
+        # ViewAction handles displaying the prompt or an error message (including suggestions).
+        unless result[:success]
+          ui.display_error(result[:message] || "Failed to view prompt '#{prompt_name}'.")
           exit_now!(1)
         end
       end
@@ -332,64 +210,29 @@ module Promptly
     arg_name 'name'
     command :edit do |c|
       c.action do |_global_options, _options, args|
-        if args.empty?
-          ui = Promptly::UI.new
-          ui.display_error('Please provide a prompt name')
-          exit_now!(1)
-        end
-
-        prompt_name = args.first
         ui = Promptly::UI.new
-
-        begin
-          manager = Promptly::Manager.new
-
-          prompt = manager.find_by_name(prompt_name)
-          filepath = nil
-
-          if prompt
-            filepath = prompt.filepath
-            ui.display_info("Editing existing prompt: #{prompt.name}")
-          else
-            prompts_dir = $config.fetch(:prompts_directory)
-            filepath = File.join(prompts_dir, "#{prompt_name}.md")
-
-            if ui.confirm("Prompt '#{prompt_name}' not found. Create new prompt?")
-              template_content = create_prompt_template(prompt_name)
-              File.write(filepath, template_content)
-              ui.display_success("Created new prompt file: #{filepath}")
-            else
-              exit_now!(0)
-            end
-          end
-
-          editor = TTY::Editor
-          editor_command = $config.fetch(:default_editor, nil) # Fetch with nil default
-
-          opened = editor_command ? editor.open(filepath, command: editor_command) : editor.open(filepath)
-
-          if opened
-            begin
-              updated_prompt = manager.find_by_name(prompt_name)
-              if updated_prompt
-                ui.display_success("Successfully updated prompt: #{prompt_name}")
-              else
-                ui.display_warning('Prompt saved, but there may be parsing issues')
-              end
-            rescue Promptly::ParseError => e
-              ui.display_warning("Prompt saved, but has parsing errors: #{e.message}")
-            end
-          else
-            ui.display_error('Failed to open editor')
-            exit_now!(1)
-          end
-        rescue Promptly::ParseError => e
-          ui.display_error("Parse error: #{e.message}")
-          exit_now!(1)
-        rescue StandardError => e
-          ui.display_error("Failed to edit prompt: #{e.message}\\n#{e.backtrace.join("\n")}")
+        if args.empty?
+          ui.display_error('Please provide a prompt name.')
           exit_now!(1)
         end
+
+        manager = Promptly::Manager.new
+        action = Promptly::CliActions::EditAction.new(ui, manager, $config)
+        prompt_name = args.first
+        # For GLI 'edit', force_create is false by default in EditAction,
+        # so it will ask to create if the prompt doesn't exist.
+        result = action.execute(prompt_name: prompt_name)
+
+        # EditAction handles most UI feedback internally.
+        # It returns { cancelled: true } if user cancels mid-action.
+        if result[:cancelled]
+          # ui.display_info(result[:message] || "Edit operation cancelled.") # Optional, EditAction might have said enough
+          exit_now!(0) # Not an error, user cancelled
+        elsif !result[:success]
+          ui.display_error(result[:message] || "Failed to edit prompt '#{prompt_name}'.")
+          exit_now!(1)
+        end
+        # Success messages are handled by EditAction
       end
     end
 
@@ -399,25 +242,20 @@ module Promptly
       c.arg_name 'key'
       c.command :get do |get_cmd|
         get_cmd.action do |_global_options, _options, args|
+          ui = Promptly::UI.new
           if args.empty?
-            ui = Promptly::UI.new
-            ui.display_error('Please provide a configuration key')
+            ui.display_error('Please provide a configuration key.')
             exit_now!(1)
           end
 
-          key = args.first.to_sym
-          ui = Promptly::UI.new
+          manager = Promptly::Manager.new # Not strictly needed by ConfigAction but consistent
+          action = Promptly::CliActions::ConfigAction.new(ui, manager, $config)
+          key_str = args.first
+          result = action.execute(sub_action: :get, key: key_str)
 
-          begin
-            value = $config.fetch(key)
-            puts "#{key}: #{value}"
-          rescue KeyError # TTY::Config raises KeyError
-            ui.display_error("Configuration key '#{key}' not found")
-            puts '\\nAvailable configuration keys:'
-            $config.to_h.keys.each { |k| puts "  - #{k}" }
-            exit_now!(1)
-          rescue StandardError => e
-            ui.display_error("Failed to get configuration: #{e.message}")
+          # ConfigAction:get handles its own success display.
+          unless result[:success]
+            ui.display_error(result[:message] || "Failed to get config key '#{key_str}'.")
             exit_now!(1)
           end
         end
@@ -427,24 +265,21 @@ module Promptly
       c.arg_name 'key value'
       c.command :set do |set_cmd|
         set_cmd.action do |_global_options, _options, args|
+          ui = Promptly::UI.new
           if args.size < 2
-            ui = Promptly::UI.new
-            ui.display_error('Please provide both key and value')
+            ui.display_error('Please provide both key and value.')
             exit_now!(1)
           end
 
-          key = args[0].to_sym
-          value = args[1..-1].join(' ')
-          ui = Promptly::UI.new
+          manager = Promptly::Manager.new
+          action = Promptly::CliActions::ConfigAction.new(ui, manager, $config)
+          key_str = args[0]
+          value = args[1..].join(' ') # Handle values with spaces
+          result = action.execute(sub_action: :set, key: key_str, value: value)
 
-          begin
-            $config.set(key, value: value)
-            config_file = File.join(Dir.home, '.config', 'promptly', 'config.yml')
-            FileUtils.mkdir_p(File.dirname(config_file))
-            $config.write(config_file, format: :yaml, force: true) # Use force: true
-            ui.display_success("Set #{key} = #{value}")
-          rescue StandardError => e
-            ui.display_error("Failed to set configuration: #{e.message}")
+          # ConfigAction:set handles its own success display.
+          unless result[:success]
+            ui.display_error(result[:message] || "Failed to set config key '#{key_str}'.")
             exit_now!(1)
           end
         end
@@ -454,46 +289,19 @@ module Promptly
       c.command :list do |list_cmd|
         list_cmd.action do |_global_options, _options, _args|
           ui = Promptly::UI.new
+          manager = Promptly::Manager.new
+          action = Promptly::CliActions::ConfigAction.new(ui, manager, $config)
+          result = action.execute(sub_action: :list)
 
-          begin
-            config_hash = $config.to_h
-
-            if config_hash.empty?
-              ui.display_info('No configuration values set')
-            else
-              table = TTY::Table.new(
-                header: %w[Key Value],
-                rows: config_hash.map { |k, v| [k, v] }
-              )
-              puts table.render(:unicode, padding: [0, 1])
-            end
-          rescue StandardError => e
-            ui.display_error("Failed to list configuration: #{e.message}")
+          # ConfigAction:list handles its own display.
+          unless result[:success]
+            ui.display_error(result[:message] || 'Failed to list configurations.')
             exit_now!(1)
           end
         end
       end
     end
-
-    private
-
-    def clear_screen
-      system('clear') || system('cls')
-    end
-
-    # Make this a class method so it can be called from show_interactive_menu
-    def self.create_prompt_template(name)
-      <<~TEMPLATE
-        ---
-        name: #{name}
-        description: A brief description of what this prompt does
-        variables: []
-        ---
-
-        # #{name.capitalize} Prompt
-
-        Write your prompt content here...
-      TEMPLATE
-    end
+    # Removed private clear_screen method as it was unused.
+    # Removed self.create_prompt_template method as it was moved to EditAction.
   end
 end
