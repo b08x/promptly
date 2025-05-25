@@ -32,33 +32,33 @@ module Promptly
 
       loop do
         puts '\\n--- Promptly Menu ---'
-        choice = ui.select('Choose an action:', %w[Docs List Show Edit Configure Exit], cycle: true, per_page: 5)
+        choice = ui.select('Choose an action:', %w[View Edit Config Docs Exit], cycle: true, per_page: 10)
         puts '' # Add a newline for spacing
 
         case choice
-        when 'List'
-          # --- Duplicated 'list' action ---
-          begin
-            # loader and ui are already available
-            prompts = loader.list_all
-            ui.display_prompt_table(prompts)
-            puts "\\nTotal: #{prompts.size} prompt(s) found" if prompts.any?
-          rescue StandardError => e
-            ui.display_error("Failed to list prompts: #{e.message}")
-            # Don't exit, just loop back
-          end
-          # --- End Duplicated 'list' action ---
+        # when 'List'
+        #   # --- Duplicated 'list' action ---
+        #   begin
+        #     # loader and ui are already available
+        #     prompts = loader.list_all
+        #     ui.display_prompt_table(prompts)
+        #     puts "\\nTotal: #{prompts.size} prompt(s) found" if prompts.any?
+        #   rescue StandardError => e
+        #     ui.display_error("Failed to list prompts: #{e.message}")
+        #     # Don't exit, just loop back
+        #   end
+        #   # --- End Duplicated 'list' action ---
 
-        when 'Show'
-          # --- Duplicated 'show' action (with prompt) ---
+        when 'View'
+          # --- Duplicated 'view' action (with prompt) ---
           prompts = loader.list_all
           if prompts.empty?
-            ui.display_info('No prompts available to show.')
+            ui.display_info('No prompts available to view.')
             next # Go back to main menu
           end
           choices = prompts.map { |p| { name: p.name, value: p.name } }
           choices << { name: '(Cancel)', value: :cancel }
-          prompt_name = ui.select('Select a prompt to show:', choices, filter: true)
+          prompt_name = ui.select('Select a prompt to view:', choices, filter: true)
 
           next if prompt_name == :cancel # Go back if cancelled
 
@@ -81,9 +81,9 @@ module Promptly
           rescue Promptly::ParseError => e
             ui.display_error(e.message)
           rescue StandardError => e
-            ui.display_error("Failed to show prompt: #{e.message}")
+            ui.display_error("Failed to view prompt: #{e.message}")
           end
-          # --- End Duplicated 'show' action ---
+          # --- End Duplicated 'view' action ---
 
         when 'Edit'
           # --- Duplicated 'edit' action (with prompt) ---
@@ -164,7 +164,7 @@ module Promptly
           end
           # --- End Duplicated 'edit' action ---
 
-        when 'Configure'
+        when 'Config'
           # --- Sub-Menu for Config ---
           loop do
             puts '\\n--- Configuration Menu ---'
@@ -253,13 +253,13 @@ module Promptly
 
     # Defines the 'docs' command.
     # This command displays interactive documentation.
-    desc 'Show interactive documentation (SFL Concepts)'
+    desc 'View interactive documentation (SFL Concepts)'
     command :docs do |c|
       c.action do |_global_options, _options, _args|
-        Promptly::DocsViewer.new.show
+        Promptly::DocsViewer.new.view
       rescue StandardError => e
         ui = Promptly::UI.new
-        ui.display_error("Failed to show docs: #{e.message}\n#{e.backtrace.join("\n")}")
+        ui.display_error("Failed to view docs: #{e.message}\n#{e.backtrace.join("\n")}")
         exit_now!(1)
       end
     end
@@ -282,9 +282,9 @@ module Promptly
       end
     end
 
-    desc 'Show details of a specific prompt'
+    desc 'View details of a specific prompt'
     arg_name 'name'
-    command :show do |c|
+    command :view do |c|
       c.action do |_global_options, _options, args|
         if args.empty?
           ui = Promptly::UI.new
@@ -322,7 +322,7 @@ module Promptly
           exit_now!(1)
         rescue StandardError => e
           ui = Promptly::UI.new
-          ui.display_error("Failed to show prompt: #{e.message}")
+          ui.display_error("Failed to view prompt: #{e.message}")
           exit_now!(1)
         end
       end

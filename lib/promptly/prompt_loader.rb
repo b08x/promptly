@@ -12,7 +12,7 @@ module Promptly
     #   `:prompts_directory` key pointing to the path where prompt files are stored.
     #   Defaults to a global `$config` variable if not provided.
     def initialize(config = $config)
-      @config = config
+      @config = config || { prompts_directory: "#{File.join(APP_ROOT, 'prompts')}" }
     end
 
     # Lists all available prompts found in the configured prompts directory.
