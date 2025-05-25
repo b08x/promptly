@@ -1,8 +1,6 @@
 # lib/promptly/ui/scrollable_box.rb
 # frozen_string_literal: true
 
-require "tty-box"
-require "tty-screen"
 require "io/console" # Needed for STDIN.getch
 
 module Promptly

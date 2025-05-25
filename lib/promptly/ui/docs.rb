@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require 'tty-prompt'
-require 'tty-markdown'
-require 'tty-box'
-require 'tty-screen'
 require 'tty-pager'
 
 module Promptly
