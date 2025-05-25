@@ -52,11 +52,19 @@ RSpec.describe Promptly::Prompt do
     end
 
     it 'uses the filename as name when name is not present in front matter' do
-      allow(parsed_data.front_matter).to receive(:[]).with('name').and_return(nil)
+      parsed_without_name = double(
+        front_matter: {
+          'description' => 'A parsed prompt',
+          'variables' => %w[var1 var2]
+        },
+        content: 'Parsed prompt content'
+      )
 
-      prompt = described_class.from_parsed_data(parsed_data, '/path/to/example_prompt.md')
+      prompt = described_class.from_parsed_data(parsed_without_name, '/path/to/example_prompt.md')
 
       expect(prompt.name).to eq('example_prompt')
+      expect(prompt.description).to eq('A parsed prompt')
+      expect(prompt.variables).to eq(%w[var1 var2])
     end
 
     it 'handles missing front matter data' do
