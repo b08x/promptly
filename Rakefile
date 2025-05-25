@@ -15,7 +15,7 @@ namespace :docs do
   # RDoc Configuration
   RDoc::Task.new(:rdoc) do |t|
     t.main = "README.md"
-    t.rdoc_files.include("README.md", "lib/**/*.rb", "docs/usage.md")
+    t.rdoc_files.include("README.md", "lib/**/*.rb", "guides/Usage.md")
     t.options << "--format=markdown"
     t.options << "--markup=markdown"
     t.rdoc_dir = "doc"
