@@ -10,6 +10,7 @@ gem 'tty-editor'
 gem 'tty-markdown'
 gem 'tty-prompt'
 gem 'tty-table'
+gem 'tty-pager'
 
 group :development do
   # Add your development-only gems here
