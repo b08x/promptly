@@ -1,11 +1,5 @@
 # frozen_string_literal: true
 
-require 'tty-prompt'
-require 'tty-markdown'
-require 'tty-box'
-require 'tty-screen'
-# TTY::Table is no longer needed for layout
-
 module Promptly
   # Handles displaying documentation in an interactive TUI (side-by-side).
   # With manual line-by-line layout for better control.

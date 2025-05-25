@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+APP_ROOT = File.expand_path('..', __dir__)
+
 require 'promptly/version'
 
 require 'fileutils'
