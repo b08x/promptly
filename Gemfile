@@ -4,6 +4,7 @@ gemspec
 gem 'dotenv'
 gem 'front_matter_parser'
 gem 'gli'
+gem 'rake'
 gem 'tty-box'
 gem 'tty-config'
 gem 'tty-editor'
@@ -26,4 +27,9 @@ group :development do
   gem 'ruby-lsp'
   gem 'solargraph'
   gem 'webrick'
+  gem 'debug_me'
+  gem 'pry-stack_explorer'
+  gem 'rspec'
+  gem 'reline'
+  gem 'rdoc'
 end

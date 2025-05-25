@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'tty-pager'
-
 module Promptly
   # Handles displaying documentation in an interactive TUI (side-by-side).
   # With manual scrolling for the content panel.
@@ -44,7 +42,7 @@ module Promptly
       @content_scroll_offset = 0
       page_data = @pages[index]
       # Calculate a reasonable width for parsing
-      content_width = [width, MAX_WIDTH].min * 0.7 - 5
+      content_width = ([width, MAX_WIDTH].min * 0.7) - 5
       @current_content_lines = TTY::Markdown.parse(
         page_data[:content],
         width: [content_width.to_i, 10].max # Ensure width > 0
@@ -75,7 +73,6 @@ module Promptly
           .strip
           .capitalize
     end
-
 
     # Renders the page.
     def render_page(index)
@@ -114,8 +111,8 @@ module Promptly
       content_box_str = TTY::Box.frame(
         page_content,
         title: {
-            top_left: " #{page_data[:title]} ",
-            bottom_right: scroll_indicator
+          top_left: " #{page_data[:title]} ",
+          bottom_right: scroll_indicator
         },
         width: content_width,
         height: inner_height,
@@ -125,11 +122,11 @@ module Promptly
 
       toc_lines = toc_box_str.lines.map(&:chomp)
       content_lines = content_box_str.lines.map(&:chomp)
-      toc_lines = (toc_lines + [" " * toc_width] * inner_height).take(inner_height)
-      content_lines = (content_lines + [" " * content_width] * inner_height).take(inner_height)
+      toc_lines = (toc_lines + ([' ' * toc_width] * inner_height)).take(inner_height)
+      content_lines = (content_lines + ([' ' * content_width] * inner_height)).take(inner_height)
 
       inner_layout = inner_height.times.map do |i|
-        (toc_lines[i] || "") + " " + (content_lines[i] || "")
+        (toc_lines[i] || '') + ' ' + (content_lines[i] || '')
       end.join("\n")
 
       outer_box_str = TTY::Box.frame(
@@ -143,7 +140,7 @@ module Promptly
 
       outer_box_str.lines.each { |line| puts padding + line.chomp }
 
-      nav_line = "Nav: (n/p)topic | (↑/↓/PgUp/PgDn)scroll | (t)oc | (v)full | (q)uit"
+      nav_line = 'Nav: (n/p)topic | (↑/↓/PgUp/PgDn)scroll | (t)oc | (v)full | (q)uit'
       puts "\n" + padding + nav_line.center(outer_width)
     end
 
@@ -167,18 +164,18 @@ module Promptly
 
       visible_lines = @current_content_lines[@content_scroll_offset, height] || []
       # Pad with empty lines if content is shorter than the box
-      visible_lines += [""] * (height - visible_lines.size)
+      visible_lines += [''] * (height - visible_lines.size)
       visible_lines.join("\n")
     end
 
     # Calculates scroll percentage.
     def build_scroll_indicator
-        total_lines = @current_content_lines.size
-        view_height = @box_content_height
-        return "[ --- ]" if total_lines <= view_height
+      total_lines = @current_content_lines.size
+      view_height = @box_content_height
+      return '[ --- ]' if total_lines <= view_height
 
-        percentage = (total_lines - view_height == 0) ? 100 : (@content_scroll_offset.to_f * 100 / (total_lines - view_height)).round
-        "[ #{percentage}% ]"
+      percentage = total_lines - view_height == 0 ? 100 : (@content_scroll_offset.to_f * 100 / (total_lines - view_height)).round
+      "[ #{percentage}% ]"
     end
 
     # Handles user input, now including scrolling.
@@ -209,7 +206,7 @@ module Promptly
         raise TTY::Reader::InputInterrupt
       else
         # Don't re-render unless a valid key was pressed
-        return handle_input # Keep listening
+        handle_input # Keep listening
       end
     end
 
@@ -218,7 +215,7 @@ module Promptly
       system 'clear' or system 'cls'
       choices = @pages.map { |p| p[:title] }
       selected_key = @prompt.select(
-        "Select a topic:", choices, cycle: true, per_page: 10, filter: true
+        'Select a topic:', choices, cycle: true, per_page: 10, filter: true
       )
       new_index = @pages.index { |p| p[:title] == selected_key }
       load_page_content(new_index) # Load new content and reset scroll
@@ -226,26 +223,26 @@ module Promptly
 
     # View full page in TTY::Pager.
     def view_current_page_in_pager
-        page_data = @pages[@current_index]
-        formatted_content = TTY::Markdown.parse(
-            page_data[:content], width: TTY::Screen.width - 2
-        )
-        DocsViewer.view_content_paged(formatted_content)
+      page_data = @pages[@current_index]
+      formatted_content = TTY::Markdown.parse(
+        page_data[:content], width: TTY::Screen.width - 2
+      )
+      DocsViewer.view_content_paged(formatted_content)
     end
 
     # Class method for TTY::Pager.
     def self.view_content_paged(content)
-        pager_commands = ['less -R', 'less', 'more', 'pg']
-        TTY::Pager.page(command: pager_commands) do |pager|
-            pager.write(content)
-        end
+      pager_commands = ['less -R', 'less', 'more', 'pg']
+      TTY::Pager.page(command: pager_commands) do |pager|
+        pager.write(content)
+      end
     rescue TTY::Pager::PagerClosed
     rescue TTY::Pager::NoPagerError
-        puts 'Could not find a pager.'
-        sleep 1
+      puts 'Could not find a pager.'
+      sleep 1
     rescue StandardError => e
-        puts "Paging error: #{e.message}"
-        sleep 1
+      puts "Paging error: #{e.message}"
+      sleep 1
     end
   end
 end
