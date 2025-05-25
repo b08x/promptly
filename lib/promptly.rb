@@ -11,6 +11,7 @@ require 'tty-markdown'
 require 'tty-table'
 require 'tty-editor'
 
+require_relative 'promptly/cli'
 require_relative 'promptly/prompt'
 require_relative 'promptly/prompt_loader'
 require_relative 'promptly/ui'
