@@ -28,7 +28,7 @@ module Promptly
     # --- Interactive Menu ---
     def self.show_interactive_menu
       ui = Promptly::UI.new
-      loader = Promptly::PromptLoader.new # Instantiate once
+      manager = Promptly::Manager.new # Instantiate once
 
       loop do
         puts '\\n--- Promptly Menu ---'
@@ -39,8 +39,8 @@ module Promptly
         # when 'List'
         #   # --- Duplicated 'list' action ---
         #   begin
-        #     # loader and ui are already available
-        #     prompts = loader.list_all
+        #     # manager and ui are already available
+        #     prompts = manager.list_all
         #     ui.display_prompt_table(prompts)
         #     puts "\\nTotal: #{prompts.size} prompt(s) found" if prompts.any?
         #   rescue StandardError => e
@@ -51,7 +51,7 @@ module Promptly
 
         when 'View'
           # --- Duplicated 'view' action (with prompt) ---
-          prompts = loader.list_all
+          prompts = manager.list_all
           if prompts.empty?
             ui.display_info('No prompts available to view.')
             next # Go back to main menu
@@ -65,13 +65,13 @@ module Promptly
           args = [prompt_name] # Simulate args
 
           begin
-            prompt = loader.find_by_name(prompt_name)
+            prompt = manager.find_by_name(prompt_name)
 
             if prompt
               ui.display_prompt_details(prompt)
             else
               ui.display_error("Prompt '#{prompt_name}' not found")
-              all_prompts = loader.list_all
+              all_prompts = manager.list_all
               suggestions = all_prompts.select { |p| p.name.downcase.include?(prompt_name.downcase) }
               if suggestions.any?
                 puts '\\nDid you mean one of these?'
@@ -92,7 +92,7 @@ module Promptly
 
           case action
           when 'Edit_Existing'
-            prompts = loader.list_all
+            prompts = manager.list_all
             if prompts.empty?
               ui.display_info('No prompts available to edit.')
               next # Back to main menu
@@ -118,7 +118,7 @@ module Promptly
           args = [prompt_name] # Simulate args
 
           begin
-            prompt = loader.find_by_name(prompt_name)
+            prompt = manager.find_by_name(prompt_name)
             filepath = nil
 
             if prompt
@@ -145,7 +145,7 @@ module Promptly
 
             if opened
               begin
-                updated_prompt = loader.find_by_name(prompt_name)
+                updated_prompt = manager.find_by_name(prompt_name)
                 if updated_prompt
                   ui.display_success("Successfully updated prompt: #{prompt_name}")
                 else
@@ -256,7 +256,7 @@ module Promptly
     desc 'View interactive documentation (SFL Concepts)'
     command :docs do |c|
       c.action do |_global_options, _options, _args|
-        Promptly::DocsViewer.new.view
+        Promptly::DocsViewer.new.show
       rescue StandardError => e
         ui = Promptly::UI.new
         ui.display_error("Failed to view docs: #{e.message}\n#{e.backtrace.join("\n")}")
@@ -267,11 +267,11 @@ module Promptly
     desc 'List all available prompts'
     command :list do |c|
       c.action do |_global_options, _options, _args|
-        loader = Promptly::PromptLoader.new
+        manager = Promptly::Manager.new
         ui = Promptly::UI.new
 
         begin
-          prompts = loader.list_all
+          prompts = manager.list_all
           ui.display_prompt_table(prompts)
           puts "\\nTotal: #{prompts.size} prompt(s) found" if prompts.any?
         rescue StandardError => e
@@ -295,10 +295,10 @@ module Promptly
         prompt_name = args.first
 
         begin
-          loader = Promptly::PromptLoader.new
+          manager = Promptly::Manager.new
           ui = Promptly::UI.new
 
-          prompt = loader.find_by_name(prompt_name)
+          prompt = manager.find_by_name(prompt_name)
 
           if prompt
             ui.display_prompt_details(prompt)
@@ -306,7 +306,7 @@ module Promptly
             ui.display_error("Prompt '#{prompt_name}' not found")
 
             # Suggest similar prompts
-            all_prompts = loader.list_all
+            all_prompts = manager.list_all
             suggestions = all_prompts.select { |p| p.name.downcase.include?(prompt_name.downcase) }
 
             if suggestions.any?
@@ -342,9 +342,9 @@ module Promptly
         ui = Promptly::UI.new
 
         begin
-          loader = Promptly::PromptLoader.new
+          manager = Promptly::Manager.new
 
-          prompt = loader.find_by_name(prompt_name)
+          prompt = manager.find_by_name(prompt_name)
           filepath = nil
 
           if prompt
@@ -370,7 +370,7 @@ module Promptly
 
           if opened
             begin
-              updated_prompt = loader.find_by_name(prompt_name)
+              updated_prompt = manager.find_by_name(prompt_name)
               if updated_prompt
                 ui.display_success("Successfully updated prompt: #{prompt_name}")
               else
