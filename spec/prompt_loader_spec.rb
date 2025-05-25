@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-RSpec.describe PromptMark::PromptLoader do
+RSpec.describe Promptly::PromptLoader do
   let(:config) { { prompts_directory: '/tmp/promptmark_test_prompts' } }
   let(:loader) { described_class.new(config) }
   let(:prompt_content) do
@@ -84,7 +84,7 @@ RSpec.describe PromptMark::PromptLoader do
     it 'raises ParseError when prompt file has invalid front matter' do
       File.write(File.join(config[:prompts_directory], 'invalid.md'), "---\ninvalid: yaml:\n---\nContent")
 
-      expect { loader.find_by_name('invalid') }.to raise_error(PromptMark::ParseError)
+      expect { loader.find_by_name('invalid') }.to raise_error(Promptly::ParseError)
     end
   end
 
@@ -142,7 +142,7 @@ RSpec.describe PromptMark::PromptLoader do
       File.write(filepath, prompt_content)
       File.chmod(0o000, filepath) # Make file unreadable
 
-      expect { loader.find_by_name('unreadable') }.to raise_error(PromptMark::ParseError)
+      expect { loader.find_by_name('unreadable') }.to raise_error(Promptly::ParseError)
     ensure
       File.chmod(0o644, filepath) if File.exist?(filepath) # Make file readable again for cleanup
     end

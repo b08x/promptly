@@ -9,9 +9,9 @@ require 'tty-config'
 require 'fileutils'
 
 begin
-  require 'promptmark'
+  require 'promptly'
 rescue LoadError
-  warn 'In development, you need to use `bundle exec bin/promptmark` to run your app'
+  warn 'In development, you need to use `bundle exec bin/promptly` to run your app'
   warn 'At install-time, RubyGems will make sure lib, etc. are in the load path'
   exit 64
 end
@@ -19,14 +19,14 @@ end
 # Initialize configuration
 $config = TTY::Config.new
 $config.append_path(Dir.home)
-$config.append_path(File.join(Dir.home, '.config', 'promptmark'))
+$config.append_path(File.join(Dir.home, '.config', 'promptly'))
 
 # Set default configuration values
 $config.set(:prompts_directory, value: File.expand_path('prompts', Dir.pwd))
 $config.set(:default_editor, value: ENV['EDITOR'] || 'nano')
 
 # Read existing config if it exists
-config_file = File.join(Dir.home, '.config', 'promptmark', 'config.yml')
+config_file = File.join(Dir.home, '.config', 'promptly', 'config.yml')
 if File.exist?(config_file)
   $config.read(config_file)
 else
@@ -35,25 +35,25 @@ else
   $config.write(config_file, format: :yaml)
 end
 
-module PromptMark
+module Promptly
   class CLI
     extend GLI::App
 
     program_desc 'Markdown Prompt Viewer/Editor CLI'
-    version Promptmark::VERSION
+    version Promptly:VERSION
 
     desc 'List all available prompts'
     command :list do |c|
       c.action do |_global_options, _options, _args|
-        loader = PromptMark::PromptLoader.new
-        ui = PromptMark::UI.new
+        loader = Promptly::PromptLoader.new
+        ui = Promptly::UI.new
 
         prompts = loader.list_all
         ui.display_prompt_table(prompts)
 
         puts "\nTotal: #{prompts.size} prompt(s) found" if prompts.any?
       rescue StandardError => e
-        ui = PromptMark::UI.new
+        ui = Promptly::UI.new
         ui.display_error("Failed to list prompts: #{e.message}")
         exit_now!(1)
       end
@@ -64,7 +64,7 @@ module PromptMark
     command :show do |c|
       c.action do |_global_options, _options, args|
         if args.empty?
-          ui = PromptMark::UI.new
+          ui = Promptly::UI.new
           ui.display_error('Please provide a prompt name')
           exit_now!(1)
         end
@@ -72,8 +72,8 @@ module PromptMark
         prompt_name = args.first
 
         begin
-          loader = PromptMark::PromptLoader.new
-          ui = PromptMark::UI.new
+          loader = Promptly::PromptLoader.new
+          ui = Promptly::UI.new
 
           prompt = loader.find_by_name(prompt_name)
 
@@ -93,12 +93,12 @@ module PromptMark
 
             exit_now!(1)
           end
-        rescue PromptMark::ParseError => e
-          ui = PromptMark::UI.new
+        rescue Promptly::ParseError => e
+          ui = Promptly::UI.new
           ui.display_error(e.message)
           exit_now!(1)
         rescue StandardError => e
-          ui = PromptMark::UI.new
+          ui = Promptly::UI.new
           ui.display_error("Failed to show prompt: #{e.message}")
           exit_now!(1)
         end
@@ -110,16 +110,16 @@ module PromptMark
     command :edit do |c|
       c.action do |_global_options, _options, args|
         if args.empty?
-          ui = PromptMark::UI.new
+          ui = Promptly::UI.new
           ui.display_error('Please provide a prompt name')
           exit_now!(1)
         end
 
         prompt_name = args.first
-        ui = PromptMark::UI.new
+        ui = Promptly::UI.new
 
         begin
-          loader = PromptMark::PromptLoader.new
+          loader = Promptly::PromptLoader.new
 
           # Find existing prompt or create new one
           prompt = loader.find_by_name(prompt_name)
@@ -156,14 +156,14 @@ module PromptMark
               else
                 ui.display_warning('Prompt saved, but there may be parsing issues')
               end
-            rescue PromptMark::ParseError => e
+            rescue Promptly::ParseError => e
               ui.display_warning("Prompt saved, but has parsing errors: #{e.message}")
             end
           else
             ui.display_error('Failed to open editor')
             exit_now!(1)
           end
-        rescue PromptMark::ParseError => e
+        rescue Promptly::ParseError => e
           ui.display_error("Parse error: #{e.message}")
           exit_now!(1)
         rescue StandardError => e
@@ -180,13 +180,13 @@ module PromptMark
       c.command :get do |get_cmd|
         get_cmd.action do |_global_options, _options, args|
           if args.empty?
-            ui = PromptMark::UI.new
+            ui = Promptly::UI.new
             ui.display_error('Please provide a configuration key')
             exit_now!(1)
           end
 
           key = args.first.to_sym
-          ui = PromptMark::UI.new
+          ui = Promptly::UI.new
 
           begin
             value = $config.fetch(key)
@@ -211,20 +211,20 @@ module PromptMark
       c.command :set do |set_cmd|
         set_cmd.action do |_global_options, _options, args|
           if args.size < 2
-            ui = PromptMark::UI.new
+            ui = Promptly::UI.new
             ui.display_error('Please provide both key and value')
             exit_now!(1)
           end
 
           key = args[0].to_sym
           value = args[1..-1].join(' ') # Join in case value has spaces
-          ui = PromptMark::UI.new
+          ui = Promptly::UI.new
 
           begin
             $config.set(key, value: value)
 
             # Write to config file
-            config_file = File.join(Dir.home, '.config', 'promptmark', 'config.yml')
+            config_file = File.join(Dir.home, '.config', 'promptly', 'config.yml')
             FileUtils.mkdir_p(File.dirname(config_file))
             $config.write(config_file, format: :yaml)
 
@@ -239,7 +239,7 @@ module PromptMark
       c.desc 'List all configuration values'
       c.command :list do |list_cmd|
         list_cmd.action do |_global_options, _options, _args|
-          ui = PromptMark::UI.new
+          ui = Promptly::UI.new
 
           begin
             config_hash = $config.to_h
@@ -280,4 +280,4 @@ module PromptMark
   end
 end
 
-exit PromptMark::CLI.run(ARGV)
+exit Promptly::CLI.run(ARGV)

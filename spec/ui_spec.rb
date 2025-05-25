@@ -1,9 +1,9 @@
 require 'spec_helper'
 
-RSpec.describe PromptMark::UI do
+RSpec.describe Promptly::UI do
   let(:ui) { described_class.new }
   let(:test_prompt) do
-    PromptMark::Prompt.new(
+    Promptly::Prompt.new(
       name: 'test_prompt',
       description: 'A test prompt description',
       variables: %w[var1 var2],
@@ -34,7 +34,7 @@ RSpec.describe PromptMark::UI do
     end
 
     it 'displays a message when the prompt body is empty' do
-      prompt_without_body = PromptMark::Prompt.new(
+      prompt_without_body = Promptly::Prompt.new(
         name: 'empty_prompt',
         description: 'Empty prompt',
         variables: [],
@@ -105,7 +105,7 @@ RSpec.describe PromptMark::UI do
   describe 'private #truncate_text' do
     it 'truncates long text' do
       # Test indirectly through display_prompt_table with a long description
-      long_description_prompt = PromptMark::Prompt.new(
+      long_description_prompt = Promptly::Prompt.new(
         name: 'long_desc',
         description: 'A' * 50, # Long description that should be truncated
         variables: [],
@@ -117,7 +117,7 @@ RSpec.describe PromptMark::UI do
     end
 
     it 'returns N/A for nil or empty text' do
-      prompt_with_no_desc = PromptMark::Prompt.new(
+      prompt_with_no_desc = Promptly::Prompt.new(
         name: 'no_desc',
         description: nil,
         variables: [],

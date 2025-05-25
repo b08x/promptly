@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'promptmark/version'
+require 'promptly/version'
 
 require 'fileutils'
 require 'yaml'
@@ -11,11 +11,11 @@ require 'tty-markdown'
 require 'tty-table'
 require 'tty-editor'
 
-require_relative 'promptmark/prompt'
-require_relative 'promptmark/prompt_loader'
-require_relative 'promptmark/ui'
+require_relative 'promptly/prompt'
+require_relative 'promptly/prompt_loader'
+require_relative 'promptly/ui'
 
-module PromptMark
+module Promptly
   class Error < StandardError; end
   class PromptNotFoundError < Error; end
   class ParseError < Error; end

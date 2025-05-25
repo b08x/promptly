@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PromptMark
+module Promptly
   # Handles user interface display using TTY components
   class UI
     def initialize

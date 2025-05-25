@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PromptMark
+module Promptly
   # Represents a prompt with YAML front matter and Markdown body
   class Prompt
     attr_reader :name, :description, :variables, :body, :filepath

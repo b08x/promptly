@@ -3,6 +3,6 @@
 
 require 'pry'
 require 'bundler/setup'
-require 'promptmark'
+require 'promptly'
 
 Pry.start

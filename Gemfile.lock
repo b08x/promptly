@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    promptmark (0.0.1)
+    promptly (0.0.1)
       gli (~> 2.22.2)
       reline
 
@@ -226,7 +226,7 @@ DEPENDENCIES
   gli
   listen
   minitest
-  promptmark!
+  promptly!
   pry
   rake
   rdoc

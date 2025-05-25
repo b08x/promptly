@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-RSpec.describe PromptMark::Prompt do
+RSpec.describe Promptly::Prompt do
   describe '#initialize' do
     it 'creates a prompt with the given attributes' do
       prompt = described_class.new(

@@ -1,4 +1,4 @@
-require 'promptmark'
+require 'promptly'
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure

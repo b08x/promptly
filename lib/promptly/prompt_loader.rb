@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PromptMark
+module Promptly
   # Handles loading and finding prompts from the filesystem
   class PromptLoader
     def initialize(config = $config)
