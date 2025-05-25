@@ -1,26 +1,43 @@
 # Ensure we require the local version and not one we might have installed already
-require File.join([File.dirname(__FILE__), 'lib', 'promptly', 'version.rb'])
-Gem::Specification.new do |s|
-  s.name = 'promptly'
-  s.version = Promptly::VERSION
-  s.author = 'Robert Pannick'
-  s.email = 'rwpannick@gmail.com'
-  s.homepage = 'https://b08x.github.io/projects/promptmanager'
-  s.platform = Gem::Platform::RUBY
-  s.required_ruby_version = '>= 3.1'
-  s.summary = 'A description of your project'
-  s.files = `git ls-files`.split("\n")
-  s.require_paths << 'lib'
-  s.extra_rdoc_files = ['README.rdoc', 'promptly.rdoc']
-  s.rdoc_options << '--title' << 'promptly' << '--main' << 'README.rdoc' << '-ri'
-  s.bindir = 'bin'
-  s.executables << 'promptly'
-  s.add_development_dependency('minitest')
-  s.add_development_dependency('pry')
-  s.add_development_dependency('rake')
-  s.add_development_dependency('rdoc')
-  s.add_development_dependency('rspec')
-  s.add_dependency('gli', '~> 2.22.2')
-  s.add_dependency('reline')
-  s.metadata['rubygems_mfa_required'] = 'true'
+lib = File.expand_path('lib', __dir__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+
+require 'promptly/version'
+
+Gem::Specification.new do |spec|
+  spec.required_ruby_version = '>= 3.1'
+  spec.name                  = 'promptly'
+  spec.version               = Promptly::VERSION
+  spec.authors               = ['Robert Pannick']
+  spec.email                 = ['rwpannick@gmail.com']
+
+  spec.summary               = 'A simple Prompt Management CLI.'
+  spec.description           = 'An interactive TUI (using FZF / Curses) ' \
+                               'for view, creating or editing markdown prompts a terminal.'
+  spec.homepage              = 'https://github.com/b08x/promptly'
+  spec.license               = 'MIT'
+
+  spec.files                 = Dir.chdir(File.expand_path(__dir__)) do
+    `git ls-files -z`.split("\x0").reject do |f|
+      f.match(%r{^(test|spec|features|assets)/})
+    end
+  end
+
+  spec.bindir        = 'exe'
+  spec.require_paths = ['lib']
+
+  spec.executables << 'promptly'
+
+  spec.add_dependency 'colorize'
+  spec.add_dependency 'curses'
+  spec.add_dependency('gli', '~> 2.22.2')
+  spec.add_dependency 'json'
+  spec.add_dependency('reline')
+  spec.add_dependency 'tty-screen'
+
+  spec.add_development_dependency 'bundler'
+  spec.add_development_dependency 'pry'
+  spec.add_development_dependency 'rake', '~> 12'
+  spec.add_development_dependency 'rspec'
+  spec.metadata['rubygems_mfa_required'] = 'true'
 end
