@@ -2,7 +2,7 @@
 name: summarize
 description: Summarizes text content into key points
 variables: 
-  - text
+  - texts
   - max_points
 ---
 
@@ -11,7 +11,7 @@ variables:
 Please summarize the following text into the most important key points:
 
 **Text to summarize:**
-{{text}}
+{{texts}}
 
 **Requirements:**
 - Extract the {{max_points}} most important points
