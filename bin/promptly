@@ -144,7 +144,7 @@ module Promptly
           end
 
           # Open editor
-          editor = TTY::Editor.new
+          editor = TTY::Editor
           editor_command = $config.fetch(:default_editor)
 
           if editor.open(filepath, command: editor_command)
@@ -167,7 +167,7 @@ module Promptly
           ui.display_error("Parse error: #{e.message}")
           exit_now!(1)
         rescue StandardError => e
-          ui.display_error("Failed to edit prompt: #{e.message}")
+          ui.display_error("Failed to edit prompt: #{e.message}\n#{e.backtrace}")
           exit_now!(1)
         end
       end
