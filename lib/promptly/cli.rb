@@ -32,7 +32,7 @@ module Promptly
 
       loop do
         puts '\\n--- Promptly Menu ---'
-        choice = ui.select('Choose an action:', %w[List Show Edit Configure Exit], cycle: true, per_page: 5)
+        choice = ui.select('Choose an action:', %w[Docs List Show Edit Configure Exit], cycle: true, per_page: 5)
         puts '' # Add a newline for spacing
 
         case choice
@@ -250,6 +250,19 @@ module Promptly
     end
 
     # --- GLI Command Definitions (UNCHANGED) ---
+
+    # Defines the 'docs' command.
+    # This command displays interactive documentation.
+    desc 'Show interactive documentation (SFL Concepts)'
+    command :docs do |c|
+      c.action do |_global_options, _options, _args|
+        Promptly::DocsViewer.new.show
+      rescue StandardError => e
+        ui = Promptly::UI.new
+        ui.display_error("Failed to show docs: #{e.message}\n#{e.backtrace.join("\n")}")
+        exit_now!(1)
+      end
+    end
 
     desc 'List all available prompts'
     command :list do |c|

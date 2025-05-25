@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 ENV['COLUMNS'] = '80'
+
 # The Promptly module provides tools for managing and using text prompts,
 # particularly those with YAML front matter and Markdown content.
 module Promptly
