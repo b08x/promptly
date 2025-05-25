@@ -1,0 +1,283 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+lib_dir = File.expand_path(File.join(__dir__, '..', 'lib'))
+$LOAD_PATH.unshift lib_dir unless $LOAD_PATH.include?(lib_dir)
+
+require 'gli'
+require 'tty-config'
+require 'fileutils'
+
+begin
+  require 'promptmark'
+rescue LoadError
+  warn 'In development, you need to use `bundle exec bin/promptmark` to run your app'
+  warn 'At install-time, RubyGems will make sure lib, etc. are in the load path'
+  exit 64
+end
+
+# Initialize configuration
+$config = TTY::Config.new
+$config.append_path(Dir.home)
+$config.append_path(File.join(Dir.home, '.config', 'promptmark'))
+
+# Set default configuration values
+$config.set(:prompts_directory, value: File.expand_path('prompts', Dir.pwd))
+$config.set(:default_editor, value: ENV['EDITOR'] || 'nano')
+
+# Read existing config if it exists
+config_file = File.join(Dir.home, '.config', 'promptmark', 'config.yml')
+if File.exist?(config_file)
+  $config.read(config_file)
+else
+  # Create config directory and file with defaults
+  FileUtils.mkdir_p(File.dirname(config_file))
+  $config.write(config_file, format: :yaml)
+end
+
+module PromptMark
+  class CLI
+    extend GLI::App
+
+    program_desc 'Markdown Prompt Viewer/Editor CLI'
+    version Promptmark::VERSION
+
+    desc 'List all available prompts'
+    command :list do |c|
+      c.action do |_global_options, _options, _args|
+        loader = PromptMark::PromptLoader.new
+        ui = PromptMark::UI.new
+
+        prompts = loader.list_all
+        ui.display_prompt_table(prompts)
+
+        puts "\nTotal: #{prompts.size} prompt(s) found" if prompts.any?
+      rescue StandardError => e
+        ui = PromptMark::UI.new
+        ui.display_error("Failed to list prompts: #{e.message}")
+        exit_now!(1)
+      end
+    end
+
+    desc 'Show details of a specific prompt'
+    arg_name 'name'
+    command :show do |c|
+      c.action do |_global_options, _options, args|
+        if args.empty?
+          ui = PromptMark::UI.new
+          ui.display_error('Please provide a prompt name')
+          exit_now!(1)
+        end
+
+        prompt_name = args.first
+
+        begin
+          loader = PromptMark::PromptLoader.new
+          ui = PromptMark::UI.new
+
+          prompt = loader.find_by_name(prompt_name)
+
+          if prompt
+            ui.display_prompt_details(prompt)
+          else
+            ui.display_error("Prompt '#{prompt_name}' not found")
+
+            # Suggest similar prompts
+            all_prompts = loader.list_all
+            suggestions = all_prompts.select { |p| p.name.downcase.include?(prompt_name.downcase) }
+
+            if suggestions.any?
+              puts "\nDid you mean one of these?"
+              suggestions.each { |p| puts "  - #{p.name}" }
+            end
+
+            exit_now!(1)
+          end
+        rescue PromptMark::ParseError => e
+          ui = PromptMark::UI.new
+          ui.display_error(e.message)
+          exit_now!(1)
+        rescue StandardError => e
+          ui = PromptMark::UI.new
+          ui.display_error("Failed to show prompt: #{e.message}")
+          exit_now!(1)
+        end
+      end
+    end
+
+    desc 'Edit a prompt'
+    arg_name 'name'
+    command :edit do |c|
+      c.action do |_global_options, _options, args|
+        if args.empty?
+          ui = PromptMark::UI.new
+          ui.display_error('Please provide a prompt name')
+          exit_now!(1)
+        end
+
+        prompt_name = args.first
+        ui = PromptMark::UI.new
+
+        begin
+          loader = PromptMark::PromptLoader.new
+
+          # Find existing prompt or create new one
+          prompt = loader.find_by_name(prompt_name)
+          filepath = nil
+
+          if prompt
+            filepath = prompt.filepath
+            ui.display_info("Editing existing prompt: #{prompt.name}")
+          else
+            # Create new prompt file
+            prompts_dir = $config.fetch(:prompts_directory)
+            filepath = File.join(prompts_dir, "#{prompt_name}.md")
+
+            if ui.confirm("Prompt '#{prompt_name}' not found. Create new prompt?")
+              # Create basic template
+              template_content = create_prompt_template(prompt_name)
+              File.write(filepath, template_content)
+              ui.display_success("Created new prompt file: #{filepath}")
+            else
+              exit_now!(0)
+            end
+          end
+
+          # Open editor
+          editor = TTY::Editor.new
+          editor_command = $config.fetch(:default_editor)
+
+          if editor.open(filepath, command: editor_command)
+            # Validate the edited file
+            begin
+              updated_prompt = loader.find_by_name(prompt_name)
+              if updated_prompt
+                ui.display_success("Successfully updated prompt: #{prompt_name}")
+              else
+                ui.display_warning('Prompt saved, but there may be parsing issues')
+              end
+            rescue PromptMark::ParseError => e
+              ui.display_warning("Prompt saved, but has parsing errors: #{e.message}")
+            end
+          else
+            ui.display_error('Failed to open editor')
+            exit_now!(1)
+          end
+        rescue PromptMark::ParseError => e
+          ui.display_error("Parse error: #{e.message}")
+          exit_now!(1)
+        rescue StandardError => e
+          ui.display_error("Failed to edit prompt: #{e.message}")
+          exit_now!(1)
+        end
+      end
+    end
+
+    desc 'Configuration management'
+    command :config do |c|
+      c.desc 'Get configuration value'
+      c.arg_name 'key'
+      c.command :get do |get_cmd|
+        get_cmd.action do |_global_options, _options, args|
+          if args.empty?
+            ui = PromptMark::UI.new
+            ui.display_error('Please provide a configuration key')
+            exit_now!(1)
+          end
+
+          key = args.first.to_sym
+          ui = PromptMark::UI.new
+
+          begin
+            value = $config.fetch(key)
+            puts "#{key}: #{value}"
+          rescue TTY::Config::ReadError
+            ui.display_error("Configuration key '#{key}' not found")
+
+            # Show available keys
+            puts "\nAvailable configuration keys:"
+            $config.to_h.keys.each { |k| puts "  - #{k}" }
+
+            exit_now!(1)
+          rescue StandardError => e
+            ui.display_error("Failed to get configuration: #{e.message}")
+            exit_now!(1)
+          end
+        end
+      end
+
+      c.desc 'Set configuration value'
+      c.arg_name 'key value'
+      c.command :set do |set_cmd|
+        set_cmd.action do |_global_options, _options, args|
+          if args.size < 2
+            ui = PromptMark::UI.new
+            ui.display_error('Please provide both key and value')
+            exit_now!(1)
+          end
+
+          key = args[0].to_sym
+          value = args[1..-1].join(' ') # Join in case value has spaces
+          ui = PromptMark::UI.new
+
+          begin
+            $config.set(key, value: value)
+
+            # Write to config file
+            config_file = File.join(Dir.home, '.config', 'promptmark', 'config.yml')
+            FileUtils.mkdir_p(File.dirname(config_file))
+            $config.write(config_file, format: :yaml)
+
+            ui.display_success("Set #{key} = #{value}")
+          rescue StandardError => e
+            ui.display_error("Failed to set configuration: #{e.message}")
+            exit_now!(1)
+          end
+        end
+      end
+
+      c.desc 'List all configuration values'
+      c.command :list do |list_cmd|
+        list_cmd.action do |_global_options, _options, _args|
+          ui = PromptMark::UI.new
+
+          begin
+            config_hash = $config.to_h
+
+            if config_hash.empty?
+              ui.display_info('No configuration values set')
+            else
+              table = TTY::Table.new(
+                header: %w[Key Value],
+                rows: config_hash.map { |k, v| [k, v] }
+              )
+
+              puts table.render(:unicode, padding: [0, 1])
+            end
+          rescue StandardError => e
+            ui.display_error("Failed to list configuration: #{e.message}")
+            exit_now!(1)
+          end
+        end
+      end
+    end
+
+    private
+
+    def create_prompt_template(name)
+      <<~TEMPLATE
+        ---
+        name: #{name}
+        description: A brief description of what this prompt does
+        variables: []
+        ---
+
+        # #{name.capitalize} Prompt
+
+        Write your prompt content here...
+      TEMPLATE
+    end
+  end
+end
+
+exit PromptMark::CLI.run(ARGV)
