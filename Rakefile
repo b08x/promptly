@@ -321,18 +321,18 @@ namespace :pdf do
   end
 
   desc 'Convert doc folder to PDF using Pandoc'
-  task :generate => [:check_pandoc, 'docs:rdoc'] do
+  task generate: [:check_pandoc, 'docs:rdoc'] do
     doc_dir = "doc"
     output_dir = "pdf_docs"
-    
+
     # Ensure the output directory exists
     mkdir_p output_dir unless Dir.exist?(output_dir)
-    
+
     puts "Converting documentation to PDF..."
-    
+
     # Get all HTML files in the doc directory and its subdirectories
     html_files = Dir.glob("#{doc_dir}/**/*.html")
-    
+
     if html_files.empty?
       puts "No HTML files found in #{doc_dir} directory"
     else
@@ -344,29 +344,31 @@ namespace :pdf do
         pdf_file = File.join(output_dir, rel_path.sub(/\.html$/i, '.pdf'))
         # Ensure output subdirectory exists
         mkdir_p File.dirname(pdf_file)
-        
+
         puts "Converting #{html_file} to #{pdf_file}..."
-        
+
         # Convert HTML to PDF using pandoc with appropriate options for HTML input
-        system("pandoc \"#{html_file}\" -f html -t pdf -o \"#{pdf_file}\" --pdf-engine=xelatex -V geometry:margin=1in") or 
+        system("pandoc \"#{html_file}\" -f html -t pdf -o \"#{pdf_file}\" --pdf-engine=xelatex -V geometry:margin=1in") or
           abort("Failed to convert #{html_file} to PDF")
       end
-      
+
       # Create a single combined PDF with all documentation
       puts "Creating combined PDF documentation..."
       combined_pdf = File.join(output_dir, "full_documentation.pdf")
-      
+
       # Sort files to ensure consistent order
       sorted_files = html_files.sort
-      
+
       # Convert all HTML files to a single PDF
-      system("pandoc #{sorted_files.map { |f| "\"#{f}\"" }.join(' ')} -f html -t pdf -o \"#{combined_pdf}\" --pdf-engine=xelatex -V geometry:margin=1in --toc --toc-depth=3") or 
+      system("pandoc #{sorted_files.map do |f|
+        "\"#{f}\""
+      end.join(' ')} -f html -t pdf -o \"#{combined_pdf}\" --pdf-engine=xelatex -V geometry:margin=1in --toc --toc-depth=3") or
         abort("Failed to create combined PDF documentation")
-      
+
       puts "PDF conversion complete! Files are available in the #{output_dir} directory"
     end
   end
-  
+
   desc 'Clean generated PDF files'
   task :clean do
     rm_rf "pdf_docs"

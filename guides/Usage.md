@@ -1,4 +1,6 @@
-# Using Promptly as a Gem
+---
+sidebar_position: 2
+---
 
 ## Overview
 
