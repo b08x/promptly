@@ -1,0 +1,12 @@
+{
+  "name": "promptly",
+  "version": "1.0.0",
+  "description": "Project tools",
+  "scripts": {
+    "lint-openapi": "redocly lint"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@redocly/cli": "^1.0.0"
+  }
+}
