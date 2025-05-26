@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-RSpec.describe Promptly::PromptLoader do
+RSpec.describe Promptly::Manager do
   let(:config) { { prompts_directory: '/tmp/promptmark_test_prompts' } }
   let(:loader) { described_class.new(config) }
   let(:prompt_content) do

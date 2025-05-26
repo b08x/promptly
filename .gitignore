@@ -1,2 +1,7 @@
 /.ruby-lsp/
 *.code-workspace
+
+/docs/
+/doc/
+/node_modules/
+/pdf_docs/

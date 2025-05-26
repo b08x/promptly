@@ -1,6 +1,12 @@
 # frozen_string_literal: true
 
+require 'tty-editor'
+require 'tty-markdown'
+require 'tty-pager'
+require 'tty-table'
+
 ENV['COLUMNS'] = '80'
+
 # The Promptly module provides tools for managing and using text prompts,
 # particularly those with YAML front matter and Markdown content.
 module Promptly

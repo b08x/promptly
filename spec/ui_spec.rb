@@ -111,7 +111,7 @@ RSpec.describe Promptly::UI do
     it 'prompts the user to select from options' do
       prompt_double = instance_double(TTY::Prompt)
       allow(TTY::Prompt).to receive(:new).and_return(prompt_double)
-      allow(prompt_double).to receive(:select).with('Select an option', ['Option 1', 'Option 2']).and_return('Option 1')
+      allow(prompt_double).to receive(:select).with('Select an option', ['Option 1', 'Option 2'], {}).and_return('Option 1')
 
       result = ui.select('Select an option', ['Option 1', 'Option 2'])
 

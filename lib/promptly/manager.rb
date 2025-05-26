@@ -5,14 +5,14 @@
 module Promptly
   # Handles loading and finding {Promptly::Prompt} objects from the filesystem.
   # It interacts with a configuration to determine the directory where prompts are stored.
-  class PromptLoader
-    # Initializes a new PromptLoader.
+  class Manager
+    # Initializes a new Manager.
     #
     # @param config [Hash] A configuration hash. It is expected to have a
     #   `:prompts_directory` key pointing to the path where prompt files are stored.
     #   Defaults to a global `$config` variable if not provided.
     def initialize(config = $config)
-      @config = config
+      @config = config || { prompts_directory: "#{File.join(APP_ROOT, 'prompts')}" }
     end
 
     # Lists all available prompts found in the configured prompts directory.

@@ -35,9 +35,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency('reline')
   spec.add_dependency 'tty-screen'
 
-  spec.add_development_dependency 'bundler'
-  spec.add_development_dependency 'pry'
-  spec.add_development_dependency 'rake', '~> 12'
-  spec.add_development_dependency 'rspec'
   spec.metadata['rubygems_mfa_required'] = 'true'
 end
